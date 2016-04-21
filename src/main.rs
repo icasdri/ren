@@ -1,6 +1,10 @@
 extern crate argparse;
 extern crate regex;
 
+#[macro_use]
+#[cfg(test)]
+mod testing_utils;
+
 mod renamer;
 
 use std::process;

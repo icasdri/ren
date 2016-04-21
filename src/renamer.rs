@@ -21,6 +21,37 @@ impl Renamer {
     }
 }
 
+#[derive(Debug)]
+struct SourcePattern {
+    set: RegexSet,
+    grouped: Regex
+}
+
+struct PatternErr {
+    message: String
+}
+
+impl SourcePattern {
+    fn new(source_pattern: String, delim: char) -> Result<SourcePattern, PatternErr> {
+        let (left, middle, right) = try!(decompose_source(source_pattern, delim)
+                                         .map_err(|e| PatternErr { message: e }));
+        let grouped_src_owned = format!(
+            "(?P<__ren_left>{})(?P<__ren_middle>{})(?P<__ren_right>{})",
+            left, middle.join("|"), right
+        );
+        let grouped_src = grouped_src_owned.as_ref();
+        let set_src = middle.iter().map(|e| format!("(?:{})(?:{})(?:{})", left, e, right));
+        let grouped = try!(Regex::new(grouped_src)
+                           .map_err(|e| PatternErr { message: "failed to compile grouped regex".to_owned() }));
+        let set = try!(RegexSet::new(set_src)
+                       .map_err(|e| PatternErr { message: "failed to compile regex set".to_owned() }));
+        Ok(SourcePattern {
+            set: set,
+            grouped: grouped
+        })
+    }
+}
+
 fn decompose_source(source_pattern: String, delim: char) -> Result<(String, Vec<String>, String), String> {
     let mut store: Vec<String> = source_pattern.split(delim).map(|e| e.to_owned()).collect();
     

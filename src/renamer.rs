@@ -52,30 +52,8 @@ fn decompose_target(target_pattern: String, delim: char) -> Result<Decomp, Decom
 }
 
 #[cfg(test)]
-mod test {
-    use super::*;
-    
-    fn test_decompose_source(param_source_pattern: &'static str, param_expected: Result<(&'static str, Vec<&'static str>, &'static str), ()>) {
-        let delim = '#';
-        let source_pattern = param_source_pattern.to_owned();
-        let result = super::decompose_source(source_pattern, delim);
-        match param_expected {
-            Ok((e_left, e_middle, e_right)) => {
-                assert!(result.is_ok());
-                let super::Decomp {
-                    left: r_left,
-                    middle: r_middle,
-                    right: r_right
-                } = result.unwrap();
-                assert_eq!(e_left, r_left);
-                assert_eq!(e_right, r_right);
-                assert_eq!(e_middle, r_middle);
-            },
-            Err(_) => {
-                assert!(result.is_err());
-            }
-        }
-    }
+mod decompose_test {
+    use super::{decompose_source, decompose_target, Decomp, DecompErr};
 
     parameterized! {
         test_decompose_source;
@@ -92,6 +70,41 @@ mod test {
              Ok(("", vec!["ab#cde"], ""))
         ds06: r"(?P<test>.*[a-zA-z]+)\d+" =>
              Ok(("", vec![r"(?P<test>.*[a-zA-z]+)\d+"], ""))
+    }
+
+    fn test_decompose_target(param_source_pattern: &'static str, param_expected: Result<(&'static str, Vec<&'static str>, &'static str), ()>) { 
+        _test_decompose(false, param_source_pattern, param_expected)
+    }
+
+    fn test_decompose_source(param_source_pattern: &'static str, param_expected: Result<(&'static str, Vec<&'static str>, &'static str), ()>) { 
+        _test_decompose(true, param_source_pattern, param_expected)
+    }
+
+    fn _test_decompose(is_source: bool, param_source_pattern: &'static str, param_expected: Result<(&'static str, Vec<&'static str>, &'static str), ()>) {
+        let delim = '#';
+        let source_pattern = param_source_pattern.to_owned();
+        let result = if is_source {
+            super::decompose_source(source_pattern, delim)
+        } else {
+            super::decompose_target(source_pattern, delim)
+        };
+
+        match param_expected {
+            Ok((e_left, e_middle, e_right)) => {
+                assert!(result.is_ok());
+                let super::Decomp {
+                    left: r_left,
+                    middle: r_middle,
+                    right: r_right
+                } = result.unwrap();
+                assert_eq!(e_left, r_left);
+                assert_eq!(e_right, r_right);
+                assert_eq!(e_middle, r_middle);
+            },
+            Err(_) => {
+                assert!(result.is_err());
+            }
+        }
     }
 }
 

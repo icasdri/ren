@@ -21,138 +21,85 @@ impl Renamer {
     }
 }
 
-#[derive(Debug)]
-struct Decomp {
-    left: String,
-    middle: Vec<String>,
-    right: String
-}
-
-#[derive(Debug)]
-struct DecompErr {
-    message: String
-}
-
-fn decompose_source(source_pattern: String, delim: char) -> Result<Decomp, DecompErr> {
-    let escape_seq = {
-        let mut x = String::new();
-        x.push('\\');
-        x.push(delim);
-        x
-    };
-    let mut store: Vec<String> = Vec::new();
-
-    for s in source_pattern.split(escape_seq.as_str()) {
-        let mut iter = s.split(delim);
-        if let Some(mut last) = store.pop() {
-            if let Some(first) = iter.next() {
-                last.push_str(first);
-                store.push(last);
-            }
-        }
-        for x in iter {
-            store.push(x.to_owned());
-        }
-    }
+fn decompose_source(source_pattern: String, delim: char) -> Result<(String, Vec<String>, String), String> {
+    let mut store: Vec<String> = source_pattern.split(delim).map(|e| e.to_owned()).collect();
     
     match store.len() {
-        0 | 2 => Err(DecompErr { message: String::from("delim syntax error") }),
-        1 => Ok(Decomp {
-            left: String::new(),
-            middle: store,
-            right: String::new()
-        }),
+        0 | 2 => Err(String::from("hanging delim")),
+        1 => Ok((String::new(), store, String::new())),
         _ => {
             let left = store.remove(0);
             let right = store.pop().unwrap();
-            Ok(Decomp {
-                left: left,
-                middle: store,
-                right: right
-            })
+            Ok((left, store, right))
         }
     }
 }
 
-fn decompose_target(target_pattern: String, delim: char) -> Result<Decomp, DecompErr> {
-    // TODO: actually implement
-    Ok(Decomp {
-        left: String::new(),
-        middle: Vec::new(),
-        right: String::new()
-    })
-}
+// fn decompose_target(target_pattern: String, delim: char) -> Result<Decomp, DecompErr> {
+    // // TODO: actually implement
+    // Ok(Decomp {
+        // left: String::new(),
+        // middle: Vec::new(),
+        // right: String::new()
+    // })
+// }
 
 #[cfg(test)]
-mod decompose_test {
-    use super::{decompose_source, decompose_target, Decomp, DecompErr};
+mod test_decompose {
+    use super::{decompose_source};
 
     parameterized! {
         test_decompose_source;
 
         ds01: "" =>
-             Ok(("", vec![], ""))
+              Ok(("", vec![""], ""))
         ds02: "#" =>
-             Err(())
+              Err(())
         ds03: "ab#cde" =>
-             Err(())
+              Err(())
         ds04: "a" =>
-             Ok(("", vec!["a"], ""))
+              Ok(("", vec!["a"], ""))
         ds05: "abcde" =>
-             Ok(("", vec!["abcde"], ""))
-        ds06: r"ab\#cde" =>
-             Ok(("", vec!["ab#cde"], ""))
-        ds07: r"ab\#c\.de" =>
-             Ok(("", vec![r"ab#c\.de"], ""))
-        ds08: r"(?P<test>.*[a-zA-z]+)\d+" =>
-             Ok(("", vec![r"(?P<test>.*[a-zA-Z]+)\d+"], ""))
-        ds09: "#abcde#" =>
-             Ok(("", vec!["abcde"], ""))
-        ds10: "xy#abcde#z" =>
-             Ok(("xy", vec!["abcde"], "z"))
-        ds11: "xy##z" =>
-             Ok(("xy", vec![""], "z"))
-        ds12: r"(?P<test>[a-zA-Z]+);*#(hello\.)\d+#(more.*)" =>
-             Ok((r"(?P<test>[a-zA-Z]+);*", vec![r"(hello\.)\d+"], r"(more.*)"))
-        ds13: r"xy#ab\#cde#z" =>
-             Ok(("xy", vec!["ab#cde"], "z"))
-        ds14: "before#a#b#c#d#after" =>
-             Ok(("before", vec!["a", "b", "c", "d"], "after"))
+              Ok(("", vec!["abcde"], ""))
+        ds06: r"(?P<test>.*[a-zA-Z]+)\d+" =>
+              Ok(("", vec![r"(?P<test>.*[a-zA-Z]+)\d+"], ""))
+        ds07: "#abcde#" =>
+              Ok(("", vec!["abcde"], ""))
+        ds08: "xy#abcde#z" =>
+              Ok(("xy", vec!["abcde"], "z"))
+        ds09: "xy##z" =>
+              Ok(("xy", vec![""], "z"))
+        ds10: r"(?P<test>[a-zA-Z]+);*#(hello\.)\d+#(more.*)" =>
+              Ok((r"(?P<test>[a-zA-Z]+);*", vec![r"(hello\.)\d+"], r"(more.*)"))
+        ds11: "before#a#b#c#d#after" =>
+              Ok(("before", vec!["a", "b", "c", "d"], "after"))
     }
 
-    fn test_decompose_target(param_source_pattern: &'static str, param_expected: Result<(&'static str, Vec<&'static str>, &'static str), ()>) { 
-        _test_decompose(false, param_source_pattern, param_expected)
-    }
-
-    fn test_decompose_source(param_source_pattern: &'static str, param_expected: Result<(&'static str, Vec<&'static str>, &'static str), ()>) { 
-        _test_decompose(true, param_source_pattern, param_expected)
-    }
-
-    fn _test_decompose(is_source: bool, param_source_pattern: &'static str, param_expected: Result<(&'static str, Vec<&'static str>, &'static str), ()>) {
+    fn test_decompose_source(param_source_pattern: &'static str, param_expected: Result<(&'static str, Vec<&'static str>, &'static str), ()>) {
         let delim = '#';
         let source_pattern = param_source_pattern.to_owned();
-        let result = if is_source {
-            super::decompose_source(source_pattern, delim)
-        } else {
-            super::decompose_target(source_pattern, delim)
-        };
+        let result = super::decompose_source(source_pattern, delim);
 
         match param_expected {
-            Ok((e_left, e_middle, e_right)) => {
+            Ok(expected) => {
                 assert!(result.is_ok());
-                let super::Decomp {
-                    left: r_left,
-                    middle: r_middle,
-                    right: r_right
-                } = result.unwrap();
-                assert_eq!(e_left, r_left);
-                assert_eq!(e_right, r_right);
-                assert_eq!(e_middle, r_middle);
+                let (r1, r2, r3) = result.unwrap();
+                let (e1, e2, e3) = expected;
+                assert_eq!(r1, e1);
+                assert_eq!(r2, e2);
+                assert_eq!(r3, e3);
             },
             Err(_) => {
                 assert!(result.is_err());
             }
         }
+    }
+    
+    #[test]
+    fn ds_different_delim() {
+        let result = super::decompose_source("abc%123%xyz".to_owned(), '%');
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), ("abc".to_owned(), vec!["123".to_owned()], "xyz".to_owned()));
     }
 }
 

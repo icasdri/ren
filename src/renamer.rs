@@ -34,50 +34,43 @@ struct DecompErr {
 }
 
 fn decompose_source(source_pattern: String, delim: char) -> Result<Decomp, DecompErr> {
-    let mut count = 0;
-    let mut escape_encountered = false;
-    let mut buffer = String::new();
-    let mut left = String::new();
-    let mut right = String::new();
-    let mut middle = Vec::new();
-    for c in source_pattern.chars() {
-        match c {
-            '\\' => {
-                if escape_encountered {
-                    buffer.push('\\');
-                }
-                escape_encountered = true;
-            }
-            delim if !escape_encountered => {
-                if count == 0 {
-                    left = buffer.clone();
-                } else {
-                    middle.push(buffer.clone());
-                }
-                buffer.clear();
-                count += 1;
-            }
-            delim if escape_encountered => {
-                buffer.push(delim);
-            }
-            _ => {
-                if escape_encountered {
-                    buffer.push('\\');
-                }
-                buffer.push(c);
+    let escape_seq = {
+        let mut x = String::new();
+        x.push('\\');
+        x.push(delim);
+        x
+    };
+    let mut store: Vec<String> = Vec::new();
+
+    for s in source_pattern.split(escape_seq.as_str()) {
+        let mut iter = s.split(delim);
+        if let Some(mut last) = store.pop() {
+            if let Some(first) = iter.next() {
+                last.push_str(first);
+                store.push(last);
             }
         }
+        for x in iter {
+            store.push(x.to_owned());
+        }
     }
-    right = buffer;
     
-    if count == 1 {
-        Err(DecompErr { message: String::from("Error: hanging delim") })
-    } else {
-        Ok(Decomp {
-            left: left,
-            middle: middle,
-            right: right
-        })
+    match store.len() {
+        0 | 2 => Err(DecompErr { message: String::from("delim syntax error") }),
+        1 => Ok(Decomp {
+            left: String::new(),
+            middle: store,
+            right: String::new()
+        }),
+        _ => {
+            let left = store.remove(0);
+            let right = store.pop().unwrap();
+            Ok(Decomp {
+                left: left,
+                middle: store,
+                right: right
+            })
+        }
     }
 }
 

@@ -1,8 +1,11 @@
 extern crate argparse;
 extern crate regex;
 
+mod renamer;
+
 use std::process;
 use argparse::{ArgumentParser, StoreTrue, Store};
+use renamer::Renamer;
 
 #[derive(Debug)]
 struct ExitWith {

@@ -34,12 +34,51 @@ struct DecompErr {
 }
 
 fn decompose_source(source_pattern: String, delim: char) -> Result<Decomp, DecompErr> {
-    // TODO: actually implement
-    Ok(Decomp {
-        left: String::new(),
-        middle: Vec::new(),
-        right: String::new()
-    })
+    let mut count = 0;
+    let mut escape_encountered = false;
+    let mut buffer = String::new();
+    let mut left = String::new();
+    let mut right = String::new();
+    let mut middle = Vec::new();
+    for c in source_pattern.chars() {
+        match c {
+            '\\' => {
+                if escape_encountered {
+                    buffer.push('\\');
+                }
+                escape_encountered = true;
+            }
+            delim if !escape_encountered => {
+                if count == 0 {
+                    left = buffer.clone();
+                } else {
+                    middle.push(buffer.clone());
+                }
+                buffer.clear();
+                count += 1;
+            }
+            delim if escape_encountered => {
+                buffer.push(delim);
+            }
+            _ => {
+                if escape_encountered {
+                    buffer.push('\\');
+                }
+                buffer.push(c);
+            }
+        }
+    }
+    right = buffer;
+    
+    if count == 1 {
+        Err(DecompErr { message: String::from("Error: hanging delim") })
+    } else {
+        Ok(Decomp {
+            left: left,
+            middle: middle,
+            right: right
+        })
+    }
 }
 
 fn decompose_target(target_pattern: String, delim: char) -> Result<Decomp, DecompErr> {
@@ -78,11 +117,13 @@ mod decompose_test {
              Ok(("", vec!["abcde"], ""))
         ds10: "xy#abcde#z" =>
              Ok(("xy", vec!["abcde"], "z"))
-        ds11: r"(?P<test>[a-zA-Z]+);*#(hello\.)\d+#(more.*)" =>
+        ds11: "xy##z" =>
+             Ok(("xy", vec![""], "z"))
+        ds12: r"(?P<test>[a-zA-Z]+);*#(hello\.)\d+#(more.*)" =>
              Ok((r"(?P<test>[a-zA-Z]+);*", vec![r"(hello\.)\d+"], r"(more.*)"))
-        ds12: r"xy#ab\#cde#z" =>
+        ds13: r"xy#ab\#cde#z" =>
              Ok(("xy", vec!["ab#cde"], "z"))
-        ds13: "before#a#b#c#d#after" =>
+        ds14: "before#a#b#c#d#after" =>
              Ok(("before", vec!["a", "b", "c", "d"], "after"))
     }
 

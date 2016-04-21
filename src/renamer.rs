@@ -58,18 +58,32 @@ mod decompose_test {
     parameterized! {
         test_decompose_source;
 
-        ds01: r"" =>
+        ds01: "" =>
              Ok(("", vec![], ""))
-        ds02: r"#" =>
+        ds02: "#" =>
              Err(())
-        ds03: r"a" =>
+        ds03: "ab#cde" =>
+             Err(())
+        ds04: "a" =>
              Ok(("", vec!["a"], ""))
-        ds04: r"abcde" =>
+        ds05: "abcde" =>
              Ok(("", vec!["abcde"], ""))
-        ds05: r"ab\#cde" =>
+        ds06: r"ab\#cde" =>
              Ok(("", vec!["ab#cde"], ""))
-        ds06: r"(?P<test>.*[a-zA-z]+)\d+" =>
-             Ok(("", vec![r"(?P<test>.*[a-zA-z]+)\d+"], ""))
+        ds07: r"ab\#c\.de" =>
+             Ok(("", vec![r"ab#c\.de"], ""))
+        ds08: r"(?P<test>.*[a-zA-z]+)\d+" =>
+             Ok(("", vec![r"(?P<test>.*[a-zA-Z]+)\d+"], ""))
+        ds09: "#abcde#" =>
+             Ok(("", vec!["abcde"], ""))
+        ds10: "xy#abcde#z" =>
+             Ok(("xy", vec!["abcde"], "z"))
+        ds11: r"(?P<test>[a-zA-Z]+);*#(hello\.)\d+#(more.*)" =>
+             Ok((r"(?P<test>[a-zA-Z]+);*", vec![r"(hello\.)\d+"], r"(more.*)"))
+        ds12: r"xy#ab\#cde#z" =>
+             Ok(("xy", vec!["ab#cde"], "z"))
+        ds13: "before#a#b#c#d#after" =>
+             Ok(("before", vec!["a", "b", "c", "d"], "after"))
     }
 
     fn test_decompose_target(param_source_pattern: &'static str, param_expected: Result<(&'static str, Vec<&'static str>, &'static str), ()>) { 

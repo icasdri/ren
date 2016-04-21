@@ -1,3 +1,7 @@
+# compiled output
 target
-*.swp
+ren
 *.o
+
+# working/swap files
+*.swp
